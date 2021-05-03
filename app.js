@@ -4,7 +4,9 @@ const ejs=require("ejs");
 const bodyParser=require("body-parser");
 const mongoose= require("mongoose");
 const encrypt=require("mongoose-encryption");
-const md5=require("md5");
+const bcrypt=require("bcrypt");
+const saltRounds=10;
+// const md5=require("md5");
 
 const app=express();
 app.set("view engine","ejs");
@@ -31,35 +33,36 @@ app.get("/login",function(req,res){
   res.render("login");
 })
 app.post("/register",function(req,res){
-  const newUser= new User({
-    email: req.body.username,
-    password: md5(req.body.password)
-  })
-  newUser.save(function(err){
-    if(!err){
-      res.render("secrets");
-    }else{
-      console.log(err);
-    }
-  })
+  bcrypt.hash(req.body.password,saltRounds,function(err,hash){
+    const newUser= new User({
+      email: req.body.username,
+      password: hash
+    })
+    newUser.save(function(err){
+      if(!err){
+          res.render("secrets");
+      }
+    });
+  });
 });
 
 app.post("/login",function(req,res){
   const queryusername = req.body.username;
-  const querypassword = md5(req.body.password);
+  const querypassword = req.body.password;//initially md5(req.body.password)
   User.findOne({email: queryusername},function(err,foundUser){
     if(foundUser){
-      if(foundUser.password === querypassword){
-        res.render("secrets");
-      }else {
-        res.send("Invalid Password");
-      }}
-      else {
-        console.log(err);
-
+      bcrypt.compare(querypassword,foundUser.password,function(err,result){
+        if(result === true){
+          res.render("secrets");
+        }else{
+          res.send("Invalid password");
+        }
+      });
     }
-  })
-})
+        else {
+          console.log(err);}
+      });
+  });
 app.listen(3000,function(){
   console.log("server is running on port 3000");
 })
